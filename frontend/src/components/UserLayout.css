@@ -1,0 +1,77 @@
+/* UserLayout Structure and Responsive Grid */
+
+:root {
+    --navbar-height: 70px;
+    --sidebar-width: 280px;
+    --sidebar-collapsed-width: 80px;
+    --layout-transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --layout-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.user-layout-container {
+    display: flex;
+    min-height: 100vh;
+    background-color: #f8fafc;
+    width: 100%;
+}
+
+/* Navbar Style */
+.user-navbar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: var(--navbar-height);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    z-index: 100;
+    width: calc(100% - var(--sidebar-width));
+    transition: width var(--layout-transition);
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: var(--layout-shadow);
+}
+
+.sidebar-collapsed .user-navbar {
+    width: calc(100% - var(--sidebar-collapsed-width));
+}
+
+/* Content Area */
+.user-layout-main {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    transition: margin-left var(--layout-transition);
+    padding-top: var(--navbar-height); /* Prevent content under hidden navbar */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-collapsed .user-layout-main {
+    margin-left: var(--sidebar-collapsed-width);
+}
+
+.user-layout-content {
+    flex: 1;
+    padding: 2rem;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+    .user-navbar {
+        width: 100% !important;
+        padding: 0 1rem;
+    }
+
+    .user-layout-main {
+        margin-left: 0 !important;
+    }
+
+    .user-layout-content {
+        padding: 1rem;
+    }
+}

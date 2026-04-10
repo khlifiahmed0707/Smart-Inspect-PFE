@@ -1,0 +1,201 @@
+/* =====================================================
+   AdminSidebar.css — White Sidebar Premium Styles
+   ===================================================== */
+
+/* ── Sidebar Shell ── */
+.admin-sidebar-premium {
+    width: var(--admin-sidebar-width);
+    background: #ffffff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 500; /* above navbar (z-index: 400) */
+    border-right: 1px solid var(--slate-100);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.03);
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+.admin-sidebar-premium.collapsed {
+    width: var(--admin-sidebar-collapsed-width);
+}
+
+/* ── Brand Header ── */
+.sidebar-header-admin {
+    height: var(--admin-navbar-height);
+    padding: 0 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--slate-100);
+    flex-shrink: 0;
+    position: relative;
+}
+
+/* ── Sidebar Toggle Button (Fixed Position) ── */
+.sidebar-collapse-btn-inner {
+    width: 32px;
+    height: 32px;
+    background: var(--slate-50);
+    border: 1.5px solid var(--slate-200);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--slate-500);
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.sidebar-collapse-btn-inner:hover {
+    background: var(--slate-100);
+    color: var(--orange-primary);
+    border-color: var(--orange-primary);
+}
+
+.sidebar-collapse-btn-inner span {
+    font-size: 1.25rem;
+}
+
+/* ── Navigation ── */
+.sidebar-nav-admin {
+    flex: 1;
+    padding: 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.nav-item-admin {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.7rem 0.875rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--slate-500);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.nav-item-admin:hover {
+    background: var(--slate-50);
+    color: var(--slate-900);
+}
+
+.nav-item-admin.active {
+    background: var(--orange-primary);
+    color: white;
+    box-shadow: 0 4px 14px rgba(236, 91, 19, 0.25);
+}
+
+.nav-item-admin.active .nav-desc {
+    opacity: 0.8;
+}
+
+.nav-icon-box {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.nav-icon-box span {
+    font-size: 1.375rem;
+}
+
+.nav-text-admin {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.nav-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-desc {
+    font-size: 0.65rem;
+    opacity: 0.6;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Footer ── */
+.sidebar-footer-admin {
+    padding: 0.75rem;
+    border-top: 1px solid var(--slate-100);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.logout-btn-admin {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.7rem 0.875rem;
+    border-radius: 12px;
+    border: none;
+    background: none;
+    color: #ef4444;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.logout-btn-admin:hover {
+    background: #fef2f2;
+}
+
+/* ── Mobile Overlay ── */
+.sidebar-overlay-admin {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(3px);
+    z-index: 499;
+}
+
+/* ── Mobile: Sidebar hidden off-screen, slides in ── */
+@media (max-width: 768px) {
+    .admin-sidebar-premium {
+        left: -100%;
+        width: 82% !important;
+        max-width: 300px;
+        z-index: 501;
+        box-shadow: 16px 0 40px rgba(0, 0, 0, 0.12);
+        transition: left 0.3s ease, width 0.3s ease;
+    }
+
+    .admin-sidebar-premium.mobile-open {
+        left: 0;
+    }
+
+    .sidebar-collapse-btn {
+        display: none;
+    }
+}

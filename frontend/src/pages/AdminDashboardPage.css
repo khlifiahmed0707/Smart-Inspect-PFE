@@ -1,0 +1,283 @@
+/* AdminDashboardPage Styles - Harmonized Premium */
+:root {
+    --primary-orange: #ec5b13;
+    --primary-hover: #d14d0f;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --white: #ffffff;
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.admin-layout-premium {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--slate-50);
+}
+
+.admin-main {
+    flex: 1;
+    padding: 2rem;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Header Premium */
+.admin-header-premium {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+}
+
+.header-left-flex {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.burger-menu-btn {
+    display: none;
+    width: 44px;
+    height: 44px;
+    background: var(--white);
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--slate-900);
+}
+
+.admin-header-premium .header-title h1 {
+    font-weight: 900;
+    font-family: 'Inter', 'Outfit', sans-serif;
+    letter-spacing: -0.025em;
+    color: var(--slate-900);
+}
+
+/* Stats Cards Grid */
+.stats-grid-premium {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.stat-card-premium {
+    background: var(--white);
+    padding: 1.5rem;
+    border-radius: 20px;
+    border: 1px solid var(--slate-100);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.stat-card-premium:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--slate-200);
+}
+
+.card-top-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.stat-icon-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-trend-tag {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #16a34a; /* green-600 */
+    background: #f0fdf4;
+    padding: 4px 8px;
+    border-radius: 20px;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.stat-val {
+    font-size: 1.875rem;
+    font-weight: 900;
+    color: #1e293b;
+    letter-spacing: -0.025em;
+}
+
+/* Quick Actions / Management Grid */
+.management-grid-premium {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+}
+
+.mgt-card-premium {
+    background: var(--white);
+    border-radius: 24px;
+    border: 1px solid var(--slate-100);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+.mgt-card-premium:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--slate-200);
+}
+
+.mgt-card-header {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mgt-icon-box {
+    width: 56px;
+    height: 56px;
+    background: white;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.mgt-card-body {
+    padding: 1.5rem;
+}
+
+.mgt-title {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+}
+
+.mgt-desc {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #64748b;
+    margin-bottom: 2rem;
+    min-height: 3.2rem;
+}
+
+.mgt-actions-flex {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.btn-mgt-primary-orange, .btn-mgt-secondary-slate {
+    flex: 1;
+    padding: 0.8rem;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-align: center;
+}
+
+.btn-mgt-primary-orange {
+    background: var(--primary-orange);
+    color: white;
+    box-shadow: 0 4px 12px rgba(236, 91, 19, 0.2);
+}
+
+.btn-mgt-primary-orange:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(236, 91, 19, 0.3);
+}
+
+.btn-mgt-secondary-slate {
+    background: var(--slate-100);
+    color: #334155;
+}
+
+.btn-mgt-secondary-slate:hover {
+    background: var(--slate-200);
+}
+
+/* Footer Premium */
+.admin-footer-premium {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--slate-200);
+    text-align: center;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+/* RESPONSIVE SETTINGS */
+@media (max-width: 1280px) {
+    .stats-grid-premium {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-main {
+        padding: 1.5rem;
+    }
+
+    .burger-menu-btn {
+        display: flex;
+    }
+
+    .admin-header-premium {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1.5rem;
+    }
+
+    .header-actions {
+        justify-content: space-between;
+    }
+
+    .stats-grid-premium {
+        grid-template-columns: 1fr;
+    }
+
+    .management-grid-premium {
+        grid-template-columns: 1fr;
+    }
+
+    .mgt-actions-flex {
+        flex-direction: column;
+    }
+
+    .mgt-card-premium {
+        border-radius: 20px;
+    }
+
+    .mgt-title {
+        font-size: 1.125rem;
+    }
+
+    .mgt-desc {
+        font-size: 0.85rem;
+        min-height: auto;
+    }
+}

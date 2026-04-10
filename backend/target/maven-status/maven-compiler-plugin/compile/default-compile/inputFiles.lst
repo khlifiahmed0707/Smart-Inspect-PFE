@@ -1,0 +1,15 @@
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\repository\PersonneRepository.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\controller\PersonneController.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\config\MailConfig.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\controller\NormalAdminController.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\entity\NormalAdminEntity.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\dto\LoginResponse.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\entity\AdminEntity.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\repository\AdminRepository.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\entity\PersonneId.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\dto\LoginRequest.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\repository\NormalAdminRepository.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\service\EmailService.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\entity\Personne.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\BackendApplication.java
+C:\Users\HP\Desktop\PFEE\backend\src\main\java\com\example\demo\service\VerificationService.java

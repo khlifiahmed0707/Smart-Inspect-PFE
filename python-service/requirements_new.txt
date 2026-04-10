@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+deepface
+numpy
+opencv-python
+tf-keras
