@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import NotificationDropdown from './NotificationDropdown';
 
 const AdminNavbar = ({ onToggleMobileMenu, adminName: propAdminName }) => {
     const navigate = useNavigate();
@@ -62,10 +63,7 @@ const AdminNavbar = ({ onToggleMobileMenu, adminName: propAdminName }) => {
             </div>
 
             <div className="navbar-right">
-                <button className="notif-btn-navbar" title="Notifications">
-                    <span className="material-symbols-outlined">notifications</span>
-                    <span className="notif-dot"></span>
-                </button>
+                <NotificationDropdown />
 
                 {/* Profile pill — Premium Orange Style */}
                 <div className="profile-pill-premium" onClick={() => navigate('/admin/profile')}>

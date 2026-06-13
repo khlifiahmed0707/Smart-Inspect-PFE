@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import NotificationDropdown from './NotificationDropdown';
 import './UserLayout.css';
 
 const UserNavbar = ({ onToggleMobileMenu, onLogout }) => {
@@ -33,7 +34,7 @@ const UserNavbar = ({ onToggleMobileMenu, onLogout }) => {
         if (userEmail && !localStorage.getItem('userPhoto')) {
             const fetchOnce = async () => {
                 try {
-                    const response = await fetch(`http://127.0.0.1:8081/api/personnes/by-email/${userEmail}`);
+                    const response = await fetch(`/api/personnes/by-email/${userEmail}`);
                     if (response.ok) {
                         const data = await response.json();
                         if (data.photo) {
@@ -73,6 +74,7 @@ const UserNavbar = ({ onToggleMobileMenu, onLogout }) => {
             </div>
 
             <div className="navbar-right">
+                <NotificationDropdown />
                 <div className="user-profile-header" onClick={() => navigate('/profile')}>
                     <div className="user-info-text lg-only">
                         <span className="user-name">{userName}</span>

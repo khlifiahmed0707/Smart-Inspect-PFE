@@ -10,14 +10,18 @@ const AdminSidebar = ({ activePage, isCollapsed, isMobileOpen, onToggleCollapse,
         navigate('/login');
     };
 
+    const userRole = localStorage.getItem('userRole') || 'ADMIN'; // Default to ADMIN if not found
+
     const menuItems = [
         { icon: "dashboard", label: "Tableau de bord", path: "/admin", key: "dashboard" },
         { icon: "group", label: "Situation des Utilisateurs", desc: "Consulter les statuts des comptes", path: "/admin/users", key: "users" },
-        { icon: "person_add", label: "Gestion des Utilisateurs", desc: "Ajouter/Modifier/Supprimer", path: "/admin/user-action", key: "user-action" },
-        { icon: "database", label: "Gestion des Données", desc: "Gérer images & métadonnées", key: "data" },
-        { icon: "history", label: "Historique Global d'Inspection", path: "/admin/analytics", key: "analytics" },
+        { icon: "person_add", label: "Gestion des Utilisateurs", desc: "Ajouter/Modifier/Supprimer", path: "/admin/user-action", key: "user-action", restricted: true },
+        { icon: "history", label: "Inspection des inspecteurs", path: "/admin/analytics", key: "analytics" },
         { icon: "assignment_turned_in", label: "Gestion des Missions", desc: "Suivi des inspections en temps réel", path: "/admin/missions", key: "missions" }
-    ];
+    ].filter(item => {
+        if (userRole === 'SUPER_ADMIN' && item.restricted) return false;
+        return true;
+    });
 
     return (
         <>

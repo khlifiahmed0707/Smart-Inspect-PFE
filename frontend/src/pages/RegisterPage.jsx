@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './LoginPage.css';
 
-const API = 'http://127.0.0.1:8081/api';
+const API = '/api';
 const STEP_LABELS = ['Informations', 'Vérification', 'Mot de passe'];
 
 // ── Composants définis HORS du parent pour éviter le re-mount à chaque frappe ──

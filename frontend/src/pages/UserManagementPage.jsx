@@ -5,6 +5,8 @@ import './UserManagementPage.css';
 
 const UserManagementPage = () => {
     const navigate = useNavigate();
+    const userRole = localStorage.getItem('userRole') || 'ADMIN';
+
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -23,7 +25,7 @@ const UserManagementPage = () => {
     // Fetch all admin emails from the backend to always be up-to-date
     const fetchAdminEmails = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:8081/api/admin/me');
+            const response = await fetch('/api/admin/me');
             if (response.ok) {
                 const data = await response.json();
                 if (data.email) {
@@ -43,7 +45,9 @@ const UserManagementPage = () => {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:8081/api/personnes');
+            const response = await fetch('/api/personnes', {
+                headers: { 'X-Role': localStorage.getItem('userRole') }
+            });
             const data = await response.json();
             setUsers(data);
         } catch (error) {
@@ -55,7 +59,10 @@ const UserManagementPage = () => {
 
     const handleToggleStatus = async (email) => {
         try {
-            const response = await fetch(`http://127.0.0.1:8081/api/personnes/${email}/toggle-status`, { method: 'PUT' });
+            const response = await fetch(`/api/personnes/${email}/toggle-status`, { 
+                method: 'PUT',
+                headers: { 'X-Role': localStorage.getItem('userRole') }
+            });
             if (response.ok) {
                 setUsers(users.map(u => u.email === email ? { ...u, enabled: !u.enabled } : u));
             }
@@ -93,10 +100,52 @@ const UserManagementPage = () => {
                             Gestion centralisée des accès inspecteurs et des statuts de compte.
                         </p>
                     </div>
-                    <button className="btn-add-inspector-premium" onClick={() => navigate('/admin/user-action')}>
-                        <span className="material-symbols-outlined">person_add</span>
-                        Nouveau Compte
-                    </button>
+                    {userRole !== 'SUPER_ADMIN' && (
+                        <button className="btn-add-inspector-premium" onClick={() => navigate('/admin/user-action')}>
+                            <span className="material-symbols-outlined">person_add</span>
+                            Nouveau Compte
+                        </button>
+                    )}
+                </div>
+
+                {/* ── STATS SUMMARY CARDS ── */}
+                <div className="um-stats-grid-premium" style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '1.5rem',
+                    marginTop: '2rem',
+                    marginBottom: '2rem'
+                }}>
+                    <div className="um-stat-card" style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: '20px', border: '1px solid #dbeafe' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="material-symbols-outlined" style={{ color: '#2563eb', fontSize: '2rem' }}>group</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: '#2563eb', textTransform: 'uppercase', tracking: '0.1em' }}>Total</span>
+                        </div>
+                        <div style={{ marginTop: '1rem' }}>
+                            <h4 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#1e3a8a' }}>{users.length}</h4>
+                            <p style={{ fontSize: '0.75rem', color: '#60a5fa', fontWeight: 600 }}>Comptes enregistrés</p>
+                        </div>
+                    </div>
+                    <div className="um-stat-card" style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '20px', border: '1px solid #dcfce7' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="material-symbols-outlined" style={{ color: '#16a34a', fontSize: '2rem' }}>person_check</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: '#16a34a', textTransform: 'uppercase', tracking: '0.1em' }}>Actifs</span>
+                        </div>
+                        <div style={{ marginTop: '1rem' }}>
+                            <h4 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#14532d' }}>{users.filter(u => u.enabled).length}</h4>
+                            <p style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 600 }}>Accès autorisés</p>
+                        </div>
+                    </div>
+                    <div className="um-stat-card" style={{ background: '#fff1f2', padding: '1.5rem', borderRadius: '20px', border: '1px solid #ffe4e6' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="material-symbols-outlined" style={{ color: '#e11d48', fontSize: '2rem' }}>person_off</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: '#e11d48', textTransform: 'uppercase', tracking: '0.1em' }}>Bloqués</span>
+                        </div>
+                        <div style={{ marginTop: '1rem' }}>
+                            <h4 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#881337' }}>{users.filter(u => !u.enabled).length}</h4>
+                            <p style={{ fontSize: '0.75rem', color: '#fb7185', fontWeight: 600 }}>Accès révoqués</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Search & Filters */}
@@ -136,6 +185,7 @@ const UserManagementPage = () => {
                                         <th>Identité</th>
                                         <th>E-mail</th>
                                         <th>CIN / Matricule</th>
+                                        <th>Téléphone</th>
                                         <th>Adresse</th>
                                         <th>État</th>
                                         <th className="text-right">Actions</th>
@@ -162,9 +212,15 @@ const UserManagementPage = () => {
                                                     <span className="email-text">{user.email}</span>
                                                 </div>
                                             </td>
-                                            {/* CIN */}
                                             <td>
                                                 <span className="matricule-tag">{user.numeroCarteIdentite || '—'}</span>
+                                            </td>
+                                            {/* TÉLÉPHONE */}
+                                            <td>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>
+                                                    <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: '#94a3b8' }}>call</span>
+                                                    {user.telephone || <span style={{ color: '#cbd5e1', fontWeight: 500, fontStyle: 'italic' }}>—</span>}
+                                                </div>
                                             </td>
                                             {/* ADRESSE */}
                                             <td>
@@ -181,7 +237,9 @@ const UserManagementPage = () => {
                                             {/* Actions */}
                                             <td>
                                                 <div className="actions-flex">
-                                                    {isAdmin(user.email) ? (
+                                                    {userRole === 'SUPER_ADMIN' ? (
+                                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', fontWeight: 500 }}>Lecture seule</span>
+                                                    ) : isAdmin(user.email) ? (
                                                         <div className="admin-lock-badge" style={{
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -222,7 +280,7 @@ const UserManagementPage = () => {
                                         </tr>
                                     )) : (
                                         <tr>
-                                            <td colSpan="6" style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8', fontWeight: 600 }}>
+                                            <td colSpan="7" style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8', fontWeight: 600 }}>
                                                 Aucun inspecteur trouvé.
                                             </td>
                                         </tr>
@@ -254,6 +312,10 @@ const UserManagementPage = () => {
                                         <div className="detail-item-um">
                                             <span className="label">CIN :</span>
                                             <span className="value">{user.numeroCarteIdentite || '—'}</span>
+                                        </div>
+                                        <div className="detail-item-um">
+                                            <span className="label">Téléphone :</span>
+                                            <span className="value">{user.telephone || '—'}</span>
                                         </div>
                                         <div className="detail-item-um">
                                             <span className="label">Adresse :</span>

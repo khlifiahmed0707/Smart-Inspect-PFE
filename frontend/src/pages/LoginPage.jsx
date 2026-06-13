@@ -21,7 +21,7 @@ export default function LoginPage() {
 
         setLoading(true);
         try {
-            const response = await fetch('http://127.0.0.1:8081/api/personnes/login', {
+            const response = await fetch('/api/personnes/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
@@ -32,8 +32,14 @@ export default function LoginPage() {
             if (data.success) {
                 const role = data.role;
                 const userName = data.user ? `${data.user.prenom} ${data.user.nom}` : email;
-                const userEmail = data.user?.email || email;
+                // ✅ CRITICAL: Always normalize email to lowercase to prevent notification mismatch
+                const userEmail = (data.user?.email || email).toLowerCase().trim();
                 const userPhoto = data.user?.photo || '';
+
+                // ✅ CRITICAL: Clear ALL previous session data before setting new user
+                // This prevents cross-user notification contamination when switching accounts
+                // especially on shared devices (smartphones used by multiple inspectors)
+                localStorage.clear();
 
                 // ── SUPER ADMIN ─────────────────────────────────────────
                 if (role === 'SUPER_ADMIN') {
@@ -76,7 +82,9 @@ export default function LoginPage() {
             }
         } catch (err) {
             setError('Erreur de connexion au serveur. Assurez-vous que le backend est lancé.');
-            console.error(err);
+            console.error("DEBUG LOGIN ERROR:", err);
+            // Alerting the error object to see it in the user's screenshot if possible
+            // Actually, just logging is enough if I can see logs.
         } finally {
             setLoading(false);
         }

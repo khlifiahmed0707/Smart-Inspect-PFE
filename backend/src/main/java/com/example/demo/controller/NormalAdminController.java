@@ -17,7 +17,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/admin-normal")
-@CrossOrigin(origins = "http://localhost:5173", allowedHeaders = "*",
+@CrossOrigin(origins = "*", allowedHeaders = "*",
     methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.PATCH, RequestMethod.OPTIONS})
 public class NormalAdminController {
 

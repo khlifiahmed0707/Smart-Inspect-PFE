@@ -30,7 +30,7 @@ const ProfilePage = () => {
         const fetchUserDetails = async () => {
             try {
                 console.log('Fetching profile for:', userEmail);
-                const response = await fetch(`http://127.0.0.1:8081/api/personnes/by-email/${userEmail}`);
+                const response = await fetch(`/api/personnes/by-email/${userEmail}`);
                 if (response.ok) {
                     const data = await response.json();
                     console.log('Profile data received:', data);
@@ -71,12 +71,41 @@ const ProfilePage = () => {
     const handlePhotoUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 800 * 1024) {
-                setMessage({ text: 'La taille de l\'image ne doit pas dépasser 800 Ko', type: 'error' });
+            if (file.size > 3 * 1024 * 1024) {
+                setMessage({ text: 'L\'image est trop volumineuse (Max 3 Mo)', type: 'error' });
                 return;
             }
             const reader = new FileReader();
-            reader.onloadend = () => setPhoto(reader.result);
+            reader.onloadend = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    // Compress to 80% quality JPEG
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    setPhoto(compressedDataUrl);
+                };
+                img.src = reader.result;
+            };
             reader.readAsDataURL(file);
         }
     };
@@ -85,7 +114,7 @@ const ProfilePage = () => {
         setPhoto(null);
         setMessage({ text: '', type: '' });
         try {
-            const response = await fetch(`http://127.0.0.1:8081/api/personnes/${userEmail}/remove-photo`, {
+            const response = await fetch(`/api/personnes/${userEmail}/remove-photo`, {
                 method: 'PUT',
             });
             if (response.ok) {
@@ -109,7 +138,7 @@ const ProfilePage = () => {
                 : (selectedRegion || specificAddress || '');
             
             const updateData = { ...user, telephone: fullPhone, adresse: combinedAddress, photo: photo };
-            const response = await fetch(`http://127.0.0.1:8081/api/personnes/update/${userEmail}`, {
+            const response = await fetch(`/api/personnes/update/${userEmail}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData)
@@ -200,7 +229,7 @@ const ProfilePage = () => {
                                     </div>
                                     <div className="upload-info">
                                         <h3>Changer la photo</h3>
-                                        <p>JPG, GIF ou PNG. Maximum 800 Ko</p>
+                                        <p>JPG, GIF ou PNG. Maximum 3 Mo</p>
                                         <div className="upload-actions">
                                             <label className="profile-btn-primary" style={{ cursor: 'pointer' }}>
                                                 Importer
@@ -336,7 +365,7 @@ const ProfilePage = () => {
             </main>
 
             <footer className="dashboard-footer">
-                <span>© 2024 SMART INSPECT. Tous droits réservés.</span>
+                <span>© 2026 SMART INSPECT. Tous droits réservés.</span>
                 <div className="footer-links">
                     <a href="#">Conditions d'utilisation</a>
                     <a href="#">Politique de confidentialité</a>

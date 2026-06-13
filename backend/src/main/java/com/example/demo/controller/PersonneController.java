@@ -7,9 +7,11 @@ import com.example.demo.entity.NormalAdminEntity;
 import com.example.demo.entity.Personne;
 import com.example.demo.entity.PersonneId;
 import com.example.demo.repository.AdminRepository;
+import com.example.demo.repository.HistoriqueInspecteurRepository;
 import com.example.demo.repository.NormalAdminRepository;
 import com.example.demo.repository.PersonneRepository;
 import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:5173", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
+@CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.PATCH, RequestMethod.OPTIONS})
 public class PersonneController {
 
     @Autowired
@@ -34,19 +36,42 @@ public class PersonneController {
     private NormalAdminRepository normalAdminRepository;
 
     @Autowired
+    private HistoriqueInspecteurRepository historiqueRepository;
+
+    @Autowired
     private com.example.demo.service.VerificationService verificationService;
 
     @PostConstruct
+    @Transactional
     public void initAdmin() {
         if (adminRepository.count() == 0) {
             AdminEntity admin = new AdminEntity();
-            admin.setEmail("ahmedkhlifi0707@gmail.com");
+            admin.setEmail("ahmedkhlifi0702@gmail.com");
             admin.setPassword("123123");
             admin.setNom("Khlifi");
             admin.setPrenom("Ahmed");
             admin.setRole("ADMIN");
             adminRepository.save(admin);
-            System.out.println("[INIT] Created default unique admin account.");
+            System.out.println("[INIT] Created default unique admin account for: ahmedkhlifi0702@gmail.com");
+        }
+
+        // ORPHAN CLEANUP: Remove history logs for users that no longer exist
+        try {
+            List<String> allEmails = repository.findAll().stream().map(Personne::getEmail).map(String::toLowerCase).toList();
+            List<String> adminEmails = adminRepository.findAll().stream().map(AdminEntity::getEmail).map(String::toLowerCase).toList();
+            List<String> normalAdminEmails = normalAdminRepository.findAll().stream().map(NormalAdminEntity::getEmail).map(String::toLowerCase).toList();
+            
+            historiqueRepository.findAll().forEach(log -> {
+                if (log.getInspecteurEmail() != null) {
+                    String logEmail = log.getInspecteurEmail().toLowerCase();
+                    if (!allEmails.contains(logEmail) && !adminEmails.contains(logEmail) && !normalAdminEmails.contains(logEmail)) {
+                        historiqueRepository.delete(log);
+                        System.out.println("[CLEANUP] Removed orphaned inspection log for deleted user: " + logEmail);
+                    }
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("[CLEANUP ERROR] " + e.getMessage());
         }
     }
 
@@ -66,7 +91,13 @@ public class PersonneController {
     }
 
     @PostMapping("/personnes")
-    public ResponseEntity<?> createPersonne(@RequestBody Personne personne) {
+    public ResponseEntity<?> createPersonne(@RequestBody Personne personne, @RequestHeader(value = "X-Role", required = false) String role) {
+        // ── ROLE PROTECTION ──────────────────────────────────────
+        if ("SUPER_ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body("ACCÈS REFUSÉ : Le Super Admin n'est plus autorisé à gérer les utilisateurs.");
+        }
+        // ─────────────────────────────────────────────────────────
+
         String emailLower = personne.getEmail().toLowerCase().trim();
 
         // ── PROTECTION ADMIN ──────────────────────────────────────
@@ -93,12 +124,18 @@ public class PersonneController {
     }
 
     @GetMapping("/personnes")
-    public List<Personne> getAllPersonnes() {
-        return repository.findAll();
+    public ResponseEntity<?> getAllPersonnes(@RequestHeader(value = "X-Role", required = false) String role) {
+        // SUPER_ADMIN is allowed to VIEW (Situation), but not manage (Gestion)
+        return ResponseEntity.ok(repository.findAll());
     }
 
     @PutMapping("/personnes/{email}/toggle-status")
-    public ResponseEntity<?> toggleStatus(@PathVariable("email") String email) {
+    public ResponseEntity<?> toggleStatus(@PathVariable("email") String email, @RequestHeader(value = "X-Role", required = false) String role) {
+        // ── ROLE PROTECTION ──────────────────────────────────────
+        if ("SUPER_ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body("ACCÈS REFUSÉ : Le Super Admin n'est plus autorisé à modifier le statut des utilisateurs.");
+        }
+        // ─────────────────────────────────────────────────────────
         String emailLower = email.toLowerCase().trim();
 
         // ── PROTECTION ADMIN ──────────────────────────────────────
@@ -141,7 +178,12 @@ public class PersonneController {
     }
 
     @PutMapping("/personnes/update/{email}")
-    public ResponseEntity<?> updatePersonne(@PathVariable("email") String email, @RequestBody Personne updatedData) {
+    public ResponseEntity<?> updatePersonne(@PathVariable("email") String email, @RequestBody Personne updatedData, @RequestHeader(value = "X-Role", required = false) String role) {
+        // ── ROLE PROTECTION ──────────────────────────────────────
+        if ("SUPER_ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body("ACCÈS REFUSÉ : Le Super Admin n'est plus autorisé à mettre à jour les utilisateurs.");
+        }
+        // ─────────────────────────────────────────────────────────
         String currentEmail = email.toLowerCase().trim();
         String newEmail = updatedData.getEmail().toLowerCase().trim();
 
@@ -198,7 +240,13 @@ public class PersonneController {
     }
 
     @DeleteMapping("/personnes/{email}")
-    public ResponseEntity<?> deletePersonne(@PathVariable("email") String email) {
+    @Transactional
+    public ResponseEntity<?> deletePersonne(@PathVariable("email") String email, @RequestHeader(value = "X-Role", required = false) String role) {
+        // ── ROLE PROTECTION ──────────────────────────────────────
+        if ("SUPER_ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body("ACCÈS REFUSÉ : Le Super Admin n'est plus autorisé à supprimer des utilisateurs.");
+        }
+        // ─────────────────────────────────────────────────────────
         String emailLower = email.toLowerCase().trim();
 
         // ── PROTECTION ADMIN ──────────────────────────────────────
@@ -213,6 +261,15 @@ public class PersonneController {
         if (personneOpt.isPresent()) {
             Personne p = personneOpt.get();
             String cin = p.getNumeroCarteIdentite();
+            
+            // CASCADE DELETE: Remove all inspection history associated with this user
+            try {
+                historiqueRepository.deleteByInspecteurEmail(emailLower);
+                historiqueRepository.deleteByInspecteurNom(p.getNom() + " " + p.getPrenom()); // Fallback if email wasn't saved perfectly
+            } catch (Exception e) {
+                System.out.println("No history found to delete or error during cascade delete: " + e.getMessage());
+            }
+
             repository.delete(p);
             return ResponseEntity.ok(Map.of("success", true, "message", "Le compte de cette cin " + cin + " est supprimer avec succees !"));
         }
@@ -232,6 +289,7 @@ public class PersonneController {
 
     @PostMapping("/personnes/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
+        System.out.println("[DEBUG] Login request received for email: " + loginRequest.getEmail());
         String emailLower = loginRequest.getEmail().toLowerCase();
 
         // 1. Check Super Admin Table
@@ -564,7 +622,7 @@ public class PersonneController {
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "role", "ADMIN",
-                "hasFace", adminOpt.get().getFaceVector() != null
+                "hasFace", true // Super Admin use PKL file, so always has face
             ));
         }
 
@@ -636,28 +694,41 @@ public class PersonneController {
         String email = request.get("email").toLowerCase().trim();
         String imageBase64 = request.get("image");
 
-        String referenceVector = null;
+        // 1. Check Super Admin (uses PKL file via /verify)
         Optional<AdminEntity> adminOpt = adminRepository.findByEmail(email);
-        if (adminOpt.isPresent()) referenceVector = adminOpt.get().getFaceVector();
-        else {
-            Optional<NormalAdminEntity> naOpt = normalAdminRepository.findByEmail(email);
-            if (naOpt.isPresent()) referenceVector = naOpt.get().getFaceVector();
+        if (adminOpt.isPresent()) {
+            try {
+                ResponseEntity<Map> response = restTemplate.postForEntity(
+                    "http://localhost:8002/verify",
+                    Map.of("image", imageBase64),
+                    Map.class
+                );
+                return ResponseEntity.ok(response.getBody());
+            } catch (Exception e) {
+                return ResponseEntity.status(500).body(Map.of("success", false, "message", "Erreur reconnaissance faciale super admin."));
+            }
         }
 
-        if (referenceVector == null) {
-            return ResponseEntity.status(400).body(Map.of("success", false, "message", "Référence biométrique introuvable."));
+        // 2. Check Normal Admin (uses DB vector via /verify-dynamic)
+        Optional<NormalAdminEntity> naOpt = normalAdminRepository.findByEmail(email);
+        if (naOpt.isPresent()) {
+            String referenceVector = naOpt.get().getFaceVector();
+            if (referenceVector == null) {
+                return ResponseEntity.status(400).body(Map.of("success", false, "message", "Référence biométrique introuvable."));
+            }
+            try {
+                ResponseEntity<Map> response = restTemplate.postForEntity(
+                    "http://localhost:8002/verify-dynamic",
+                    Map.of("image", imageBase64, "referenceVector", referenceVector),
+                    Map.class
+                );
+                return ResponseEntity.ok(response.getBody());
+            } catch (Exception e) {
+                return ResponseEntity.status(500).body(Map.of("success", false, "message", "Erreur reconnaissance faciale admin normal."));
+            }
         }
 
-        try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(
-                "http://localhost:8002/verify-dynamic",
-                Map.of("image", imageBase64, "referenceVector", referenceVector),
-                Map.class
-            );
-            return ResponseEntity.ok(response.getBody());
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Erreur reconnaissance faciale."));
-        }
+        return ResponseEntity.status(404).body(Map.of("success", false, "message", "Compte administrateur introuvable."));
     }
 
     /**

@@ -4,11 +4,36 @@ import pickle
 import numpy as np
 import cv2
 import base64
+import time
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from deepface import DeepFace
 from fastapi.middleware.cors import CORSMiddleware
+
+# ----------------------------------------------------------------
+# Smart Inspect AI — TFLite Model Configuration
+# ----------------------------------------------------------------
+AI_MODEL_DIR = r"C:\Users\HP\Desktop\SmartInspect_AI"
+TFLITE_MODEL_PATH = os.path.join(AI_MODEL_DIR, "model_unquant.tflite")
+LABELS_PATH = os.path.join(AI_MODEL_DIR, "labels.txt")
+
+# Load TFLite model and labels once at startup
+tflite_interpreter = None
+tflite_labels = []
+
+def load_tflite_model():
+    global tflite_interpreter, tflite_labels
+    try:
+        import ai_edge_litert.interpreter as tflite
+        tflite_interpreter = tflite.Interpreter(model_path=TFLITE_MODEL_PATH)
+        tflite_interpreter.allocate_tensors()
+        with open(LABELS_PATH, "r", encoding="utf-8") as f:
+            tflite_labels = [line.strip() for line in f.readlines() if line.strip()]
+        print(f"[AI] TFLite model loaded: {TFLITE_MODEL_PATH}")
+        print(f"[AI] Labels loaded: {tflite_labels}")
+    except Exception as e:
+        print(f"[AI ERROR] Failed to load TFLite model: {e}")
 
 app = FastAPI()
 
@@ -71,6 +96,7 @@ def cosine_distance(vec_a: list, vec_b: list) -> float:
 @app.on_event("startup")
 async def startup_event():
     load_vector()
+    load_tflite_model()
 
 # -----------------------------------------------------------------
 # Model schemas
@@ -181,6 +207,81 @@ async def verify_face_dynamic(request: FaceDynamicVerifyRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # -----------------------------------------------------------------
+# Endpoint 4: /inspect — Industrial AI Inspection (TFLite)
+# -----------------------------------------------------------------
+class InspectRequest(BaseModel):
+    image: str  # Base64 encoded image (from React file upload or webcam)
+
+@app.post("/inspect")
+async def inspect_piece(request: InspectRequest):
+    global tflite_interpreter, tflite_labels
+
+    if tflite_interpreter is None:
+        load_tflite_model()
+        if tflite_interpreter is None:
+            raise HTTPException(status_code=503, detail="AI model not loaded. Check model path.")
+
+    try:
+        # 1. Decode base64 image
+        img = decode_image(request.image)
+        if img is None:
+            raise HTTPException(status_code=400, detail="Invalid image data")
+
+        # 2. Preprocessing: RGB conversion + Resize 224x224 + Normalize [-1, 1]
+        start_time = time.time()
+        image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        input_img = cv2.resize(image_rgb, (224, 224), interpolation=cv2.INTER_AREA)
+        input_data = np.expand_dims(input_img, axis=0).astype(np.float32)
+        input_data = (input_data / 127.5) - 1
+
+        # 3. Run TFLite inference
+        input_details = tflite_interpreter.get_input_details()
+        output_details = tflite_interpreter.get_output_details()
+        tflite_interpreter.set_tensor(input_details[0]['index'], input_data)
+        tflite_interpreter.invoke()
+        predictions = tflite_interpreter.get_tensor(output_details[0]['index'])[0]
+        inference_time = time.time() - start_time
+
+        # 4. Parse prediction result
+        index = int(np.argmax(predictions))
+        confidence = float(predictions[index])
+        label_full = tflite_labels[index] if index < len(tflite_labels) else "Inconnu"
+
+        # Remove leading index number (e.g., "1 carte de ..." -> "carte de ...")
+        clean_label = label_full[2:].strip() if len(label_full) > 2 and label_full[1] == ' ' else label_full
+
+        # 5. Intelligent label parsing: detect "manque" keyword
+        if "manque" in clean_label.lower():
+            parts = clean_label.lower().split("manque", 1)
+            nom_piece = parts[0].strip().title()
+            anomalie = "Manque " + parts[1].replace("_", " ").strip().title()
+            conformite = "NON CONFORME"
+        else:
+            nom_piece = clean_label.replace("_", " ").title()
+            anomalie = "Aucune (OK)"
+            conformite = "CONFORME"
+
+        result = {
+            "success": True,
+            "nom_piece": nom_piece,
+            "conformite": conformite,
+            "anomalie": anomalie,
+            "confidence": round(confidence * 100, 2),
+            "inference_time": round(inference_time, 3),
+            "label_raw": label_full,
+            "label_index": index
+        }
+
+        print(f"[INSPECT] {conformite} | Piece: {nom_piece} | Anomalie: {anomalie} | Conf: {confidence*100:.1f}% | Time: {inference_time:.3f}s")
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[INSPECT ERROR] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# -----------------------------------------------------------------
 # Health Check
 # -----------------------------------------------------------------
 @app.get("/health")
@@ -188,7 +289,9 @@ async def health():
     return {
         "status": "ok",
         "super_admin_vector_loaded": admin_vector is not None,
-        "endpoints": ["/verify", "/extract", "/verify-dynamic"]
+        "tflite_model_loaded": tflite_interpreter is not None,
+        "labels_count": len(tflite_labels),
+        "endpoints": ["/verify", "/extract", "/verify-dynamic", "/inspect"]
     }
 
 if __name__ == "__main__":

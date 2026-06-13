@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Webcam from 'react-webcam';
 import './LoginPage.css';
 
-const API = 'http://127.0.0.1:8081/api';
+const API = '/api';
 
 // ── Composants Partagés (Hérités du Design System Login) ─────────────────────
 
@@ -109,6 +109,17 @@ export default function RecoveryPage() {
             if (res.ok) {
                 setRole(data.role);
                 setHasFace(data.hasFace);
+                
+                // Si c'est un ADMIN, on doit déclencher l'envoi de l'OTP immédiatement
+                if (data.role === 'ADMIN') {
+                    await fetch(`${API}/auth/recovery/send-otp-admin`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    setSuccess("Code de sécurité envoyé par email.");
+                }
+                
                 setStep(2);
                 setSubStep(1);
             } else {
@@ -161,6 +172,7 @@ export default function RecoveryPage() {
             if (res.ok && data.match) {
                 setStep(3);
                 setSuccess("Biométrie validée.");
+                setError('');
             } else {
                 setError(data.message || "Visage non reconnu.");
             }

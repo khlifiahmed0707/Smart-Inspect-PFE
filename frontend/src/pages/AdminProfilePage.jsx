@@ -57,7 +57,7 @@ const AdminProfilePage = () => {
 
     const fetchNormalAdmins = async () => {
         try {
-            const res = await fetch('http://127.0.0.1:8081/api/admin-normal/all');
+            const res = await fetch('/api/admin-normal/all');
             if (res.ok) setNormalAdmins(await res.json());
         } catch (e) { console.error('Failed to fetch normal admins', e); }
     };
@@ -67,7 +67,7 @@ const AdminProfilePage = () => {
         setAdminCreateStatus('loading');
         setAdminCreateMsg('');
         try {
-            const res = await fetch('http://127.0.0.1:8081/api/admin-normal/create', {
+            const res = await fetch('/api/admin-normal/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newAdmin)
@@ -99,7 +99,7 @@ const AdminProfilePage = () => {
 
         setIsDeleting(true);
         try {
-            const res = await fetch(`http://127.0.0.1:8081/api/admin-normal/${adminToDestroy.id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin-normal/${adminToDestroy.id}`, { method: 'DELETE' });
             if (res.ok) {
                 setToastMessage(`L'accès de ${adminToDestroy.prenom} a été révoqué avec succès.`);
                 setUpdateStatus('success');
@@ -117,7 +117,7 @@ const AdminProfilePage = () => {
 
     const handleToggleStatus = async (id) => {
         try {
-            const res = await fetch(`http://127.0.0.1:8081/api/admin-normal/${id}/status`, { method: 'PATCH' });
+            const res = await fetch(`/api/admin-normal/${id}/status`, { method: 'PATCH' });
             if (res.ok) {
                 const data = await res.json();
                 setToastMessage(data.message);
@@ -140,7 +140,7 @@ const AdminProfilePage = () => {
 
     const fetchAdminProfile = async () => {
         try {
-            const apiBase = isSuperAdmin ? 'http://127.0.0.1:8081/api/admin/me' : `http://127.0.0.1:8081/api/admin-normal/me?email=${initialEmail}`;
+            const apiBase = isSuperAdmin ? '/api/admin/me' : `/api/admin-normal/me?email=${initialEmail}`;
             const response = await fetch(apiBase);
             if (response.ok) {
                 const data = await response.json();
@@ -169,15 +169,42 @@ const AdminProfilePage = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 2 * 1024 * 1024) {
-            setToastMessage("L'image est trop lourde (max 2Mo)");
+        if (file.size > 3 * 1024 * 1024) {
+            setToastMessage("L'image est trop lourde (Max 3 Mo)");
             setUpdateStatus('error');
             return;
         }
 
         const reader = new FileReader();
         reader.onloadend = () => {
-            setAdminData(prev => ({ ...prev, photo: reader.result }));
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                // Compress to 80% quality JPEG
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                setAdminData(prev => ({ ...prev, photo: compressedDataUrl }));
+            };
+            img.src = reader.result;
         };
         reader.readAsDataURL(file);
     };
@@ -213,7 +240,7 @@ const AdminProfilePage = () => {
 
     const initiateEmailVerification = async (newEmail) => {
         try {
-            const response = await fetch('http://127.0.0.1:8081/api/auth/send-code', {
+            const response = await fetch('/api/auth/send-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -251,7 +278,7 @@ const AdminProfilePage = () => {
         setVerificationError('');
 
         try {
-            const response = await fetch('http://127.0.0.1:8081/api/auth/verify-code', {
+            const response = await fetch('/api/auth/verify-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -277,7 +304,7 @@ const AdminProfilePage = () => {
     const executeFinalUpdate = async () => {
         setUpdateStatus('loading');
         try {
-            const apiBase = isSuperAdmin ? 'http://127.0.0.1:8081/api/admin/update' : 'http://127.0.0.1:8081/api/admin-normal/update';
+            const apiBase = isSuperAdmin ? '/api/admin/update' : '/api/admin-normal/update';
             const response = await fetch(apiBase, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -550,19 +577,7 @@ const AdminProfilePage = () => {
                             </div>
                         </div>
 
-                        {/* Sécurité Cockpit */}
-                        <div className="bg-slate-900 p-10 rounded-[40px] text-white relative overflow-hidden shadow-2xl shadow-slate-900/40">
-                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
-                            <div className="absolute bottom-0 right-0 p-10 opacity-10">
-                                <span className="material-symbols-outlined text-9xl">lock_open</span>
-                            </div>
-                            
-                            <h4 className="text-xl font-black mb-3 relative z-10">Sécurité Cockpit</h4>
-                            <p className="text-slate-400 text-xs mb-8 leading-relaxed relative z-10 font-medium">Votre accès est protégé par un encodage SHA-256 et une session persistante sécurisée.</p>
-                            <button className="relative z-10 w-full py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all">
-                                Journal des Connexions
-                            </button>
-                        </div>
+
                     </div>
                 </div>
 

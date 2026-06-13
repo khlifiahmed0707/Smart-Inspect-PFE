@@ -235,7 +235,7 @@
 
 .progress-track {
     height: 6px;
-    background: #f1f5f9;
+    background: red;
     border-radius: 99px;
     overflow: hidden;
 }
@@ -252,7 +252,7 @@
     white-space: nowrap;
 }
 
-.badge-red { background: #fef2f2; color: #ef4444; }
+.badge-red { background: red; color: #ef4444; }
 .badge-orange { background: #fff7ed; color: #f97316; }
 .badge-green { background: #f0fdf4; color: #22c55e; }
 

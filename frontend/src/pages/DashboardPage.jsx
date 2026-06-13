@@ -6,12 +6,49 @@ import './DashboardPage.css';
 export default function DashboardPage() {
     const navigate = useNavigate();
     const userName = localStorage.getItem('userName') || 'Utilisateur';
+    const userEmail = localStorage.getItem('userEmail') || '';
+
+    const [kpi, setKpi] = useState({
+        conformes: 0,
+        avgConfidence: '0%',
+        avgTime: '0.0s',
+        missionsEnCours: 0
+    });
+
+    useEffect(() => {
+        if (!userEmail) return;
+        
+        // Fetch KPIs
+        fetch(`/api/inspections/kpi?email=${encodeURIComponent(userEmail)}`)
+            .then(r => r.json())
+            .then(data => {
+                setKpi(prev => ({
+                    ...prev,
+                    conformes: data.conformes || 0,
+                    avgConfidence: data.avgConfidence || '0%',
+                    avgTime: data.avgTime || '0.0s'
+                }));
+            })
+            .catch(err => console.error("Error fetching dashboard KPIs:", err));
+
+        // Fetch user's missions to count active ones
+        fetch(`/api/missions/my-missions?email=${encodeURIComponent(userEmail)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const enCoursCount = data.filter(m => m.statut === 'En cours').length;
+                    setKpi(prev => ({ ...prev, missionsEnCours: enCoursCount }));
+                }
+            })
+            .catch(err => console.error("Error fetching missions for stats:", err));
+            
+    }, [userEmail]);
 
     const stats = [
-        { label: "Inspections Réussies", value: "124", icon: "check_circle", theme: "stat-success" },
-        { label: "En Cours", value: "3", icon: "more_horiz", theme: "stat-pending" },
-        { label: "Précision IA", value: "99.2%", icon: "trending_up", theme: "stat-info" },
-        { label: "Temps Moyen", value: "1.2s", icon: "timer", theme: "stat-neutral" }
+        { label: "Inspections Réussies", value: String(kpi.conformes), icon: "check_circle", theme: "stat-success" },
+        { label: "MISSION En Cours", value: String(kpi.missionsEnCours), icon: "more_horiz", theme: "stat-pending" },
+        { label: "Précision IA", value: kpi.avgConfidence, icon: "trending_up", theme: "stat-info" },
+        { label: "Temps Moyen", value: kpi.avgTime, icon: "timer", theme: "stat-neutral" }
     ];
 
     const handleLogout = () => {
@@ -22,10 +59,10 @@ export default function DashboardPage() {
     return (
         <UserLayout activePage="dashboard">
             <div className="welcome-section" style={{ marginBottom: '2rem' }}>
-                <h1 className="welcome-title text-3xl font-black text-slate-900">Bienvenue, {userName} 👋</h1>
+                <h1 className="welcome-title text-3xl font-black text-slate-900">Bienvenue, {userName}  ! </h1>
                 <p className="welcome-subtitle text-slate-500 mt-2">Gérez vos inspections et analysez vos données avec notre IA avancée.</p>
             </div>
-            
+
             {/* Main Actions */}
             <div className="action-cards">
                 {/* Same content as before */}
@@ -133,7 +170,7 @@ export default function DashboardPage() {
 
             {/* Footer */}
             <footer className="dashboard-footer">
-                <span>© 2024 SMART INSPECT. Tous droits réservés.</span>
+                <span>© 2026 SMART INSPECT. Tous droits réservés.</span>
                 <div className="footer-links">
                     <a href="#">Conditions d'utilisation</a>
                     <a href="#">Politique de confidentialité</a>

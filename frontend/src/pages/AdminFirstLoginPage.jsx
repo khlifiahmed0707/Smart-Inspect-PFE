@@ -56,7 +56,7 @@ const AdminFirstLoginPage = () => {
     const sendOtp = async () => {
         setOtpError('');
         try {
-            await fetch('http://127.0.0.1:8081/api/admin-normal/send-otp', {
+            await fetch('/api/admin-normal/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -72,7 +72,7 @@ const AdminFirstLoginPage = () => {
         setOtpLoading(true);
         setOtpError('');
         try {
-            const res = await fetch('http://127.0.0.1:8081/api/admin-normal/verify-otp', {
+            const res = await fetch('/api/admin-normal/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, code: otpCode })
@@ -96,7 +96,7 @@ const AdminFirstLoginPage = () => {
         setFaceLoading(true);
         setFaceError('');
         try {
-            const res = await fetch('http://127.0.0.1:8081/api/admin-normal/register-face', {
+            const res = await fetch('/api/admin-normal/register-face', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, image: imageSrc })
@@ -131,7 +131,7 @@ const AdminFirstLoginPage = () => {
 
         setPwdLoading(true);
         try {
-            const res = await fetch('http://127.0.0.1:8081/api/admin-normal/complete-setup', {
+            const res = await fetch('/api/admin-normal/complete-setup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, newPassword })

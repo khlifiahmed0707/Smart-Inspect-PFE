@@ -15,5 +15,7 @@ public interface PersonneRepository extends JpaRepository<Personne, PersonneId> 
     
     Optional<Personne> findByIdNumeroCarteIdentite(String numeroCarteIdentite);
     
+    java.util.List<Personne> findAllByRoleIn(java.util.List<String> roles);
+    
     long countByRole(String role);
 }

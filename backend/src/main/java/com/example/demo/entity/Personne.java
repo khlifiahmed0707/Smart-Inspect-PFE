@@ -28,10 +28,6 @@ public class Personne {
         this.nom = nom;
         this.prenom = prenom;
         this.password = password;
-        
-        if ("ahmedkhlifi0707@gmail.com".equalsIgnoreCase(email)) {
-            this.enabled = true;
-        }
     }
 
     public PersonneId getId() { return id; }

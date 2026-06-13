@@ -1,10 +1,14 @@
 com\example\demo\service\EmailService.class
-com\example\demo\entity\Personne.class
-com\example\demo\BackendApplication.class
 com\example\demo\entity\AdminEntity.class
 com\example\demo\dto\LoginRequest.class
+com\example\demo\controller\PersonneController.class
+com\example\demo\dto\LoginResponse.class
+com\example\demo\controller\NormalAdminController.class
+com\example\demo\entity\Personne.class
+com\example\demo\BackendApplication.class
 com\example\demo\entity\PersonneId.class
 com\example\demo\service\VerificationService.class
+com\example\demo\repository\NormalAdminRepository.class
 com\example\demo\repository\AdminRepository.class
 com\example\demo\repository\PersonneRepository.class
-com\example\demo\dto\LoginResponse.class
+com\example\demo\entity\NormalAdminEntity.class

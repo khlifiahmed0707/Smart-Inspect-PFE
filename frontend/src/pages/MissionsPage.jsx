@@ -1,17 +1,119 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import './DashboardPage.css';
 import './MissionsPage.css';
 
+const prioriteStyle = {
+    'Haute': { bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-500', label: '🔴 Haute' },
+    'Normale': { bg: 'bg-yellow-50', text: 'text-yellow-600', dot: 'bg-yellow-500', label: '🟡 Normale' },
+    'Basse': { bg: 'bg-blue-50', text: 'text-blue-500', dot: 'bg-blue-500', label: '🔵 Basse' },
+};
+
 const MissionsPage = () => {
     const navigate = useNavigate();
-    const userName = localStorage.getItem('userName') || 'Utilisateur';
+    const userEmail = localStorage.getItem('userEmail') || '';
+    const userName = localStorage.getItem('userName') || 'Inspecteur';
 
-    // Missions logic remains the same
+    const [missions, setMissions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [markingId, setMarkingId] = useState(null);
+
+    // ── Fetch missions for this inspector ──
+    const fetchMissions = useCallback(() => {
+        if (!userEmail) return;
+        setLoading(true);
+        fetch(`/api/missions/my-missions?email=${encodeURIComponent(userEmail)}`)
+            .then(r => r.ok ? r.json() : [])
+            .then(data => setMissions(data))
+            .catch(() => { })
+            .finally(() => setLoading(false));
+    }, [userEmail]);
+
+    useEffect(() => { fetchMissions(); }, [fetchMissions]);
+
+    // ── Categorise ──
+    const activeMissions = missions.filter(m => m.statut === 'En cours' || m.statut === 'En retard');
+    const doneMissions = missions.filter(m => m.statut === 'Terminée');
+
+    // ── Search filter ──
+    const filterMissions = (list) => {
+        if (!searchQuery) return list;
+        const q = searchQuery.toLowerCase();
+        return list.filter(m =>
+            (m.missionRef || '').toLowerCase().includes(q) ||
+            (m.pieceAttendue || '').toLowerCase().includes(q) ||
+            (m.titre || '').toLowerCase().includes(q) ||
+            (m.description || '').toLowerCase().includes(q) ||
+            (m.priorite || '').toLowerCase().includes(q)
+        );
+    };
+
+    // ── Mark as complete (without inspection - fallback) ──
+    const handleMarkComplete = async (id) => {
+        setMarkingId(id);
+        try {
+            const res = await fetch(`/api/missions/${id}/complete`, { method: 'PATCH' });
+            if (res.ok) fetchMissions();
+        } finally {
+            setMarkingId(null);
+        }
+    };
+
+    // ── Launch Inspection with mission context ──
+    const handleLaunchInspection = (mission) => {
+        // Store mission context so InspectionPage can enforce conformity
+        localStorage.setItem('activeMissionId', String(mission.id));
+        localStorage.setItem('activeMissionPiece', mission.pieceAttendue || mission.titre || '');
+        localStorage.setItem('activeMissionRef', mission.missionRef || `MSN-${mission.id}`);
+        navigate('/inspection');
+    };
+
+    // ── Time remaining calculation (uses full ISO datetime for minute-precision) ──
+    const getTimeRemaining = (m) => {
+        // Prefer ISO datetime if available, fallback to date only
+        const raw = m.echeanceIso || m.dateEcheance;
+        if (!raw) return null;
+        let echeance;
+        if (m.echeanceIso) {
+            echeance = new Date(m.echeanceIso);
+        } else {
+            // parse dd/MM/yyyy
+            const parts = raw.split('/');
+            if (parts.length !== 3) return null;
+            echeance = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        }
+        const now = new Date();
+        const diffMs = echeance - now;
+        if (diffMs <= 0) return { label: 'En retard', pct: 100, color: 'text-red-500', barColor: 'bg-red-500', isLate: true };
+        const diffMin = Math.floor(diffMs / 60000);
+        const diffH = Math.floor(diffMin / 60);
+        const diffD = Math.floor(diffH / 24);
+        let label;
+        if (diffD > 0) label = `${diffD}j ${diffH % 24}h`;
+        else if (diffH > 0) label = `${diffH}h ${diffMin % 60}min`;
+        else label = `${diffMin}min`;
+        const pct = Math.max(5, Math.min(100, 100 - (diffD / 7 * 100)));
+        return { label, pct, color: diffH < 24 ? 'text-orange-500' : 'text-green-600', barColor: diffH < 24 ? 'bg-orange-500' : 'bg-green-500', isLate: false };
+    };
+
+    if (loading) {
+        return (
+            <UserLayout activePage="missions">
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="text-center opacity-30">
+                        <div className="w-10 h-10 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-sm font-black uppercase tracking-widest">Chargement des missions...</p>
+                    </div>
+                </div>
+            </UserLayout>
+        );
+    }
 
     return (
         <UserLayout activePage="missions">
+            {/* ── Header ── */}
             <header className="page-header" style={{ alignItems: 'flex-start' }}>
                 <div className="header-text">
                     <h1 className="welcome-title text-3xl font-black text-slate-900">Tableau de Service</h1>
@@ -20,285 +122,268 @@ const MissionsPage = () => {
                 <div className="header-stats">
                     <div className="stat-card-missions">
                         <p className="stat-label-missions">En cours</p>
-                        <p className="stat-value-missions">5</p>
+                        <p className="stat-value-missions">{missions.filter(m => m.statut === 'En cours').length}</p>
+                    </div>
+                    <div className="stat-card-missions" style={{ borderLeft: '3px solid #ef4444' }}>
+                        <p className="stat-label-missions" style={{ color: '#dc2626' }}>  En retard</p>
+                        <p className="stat-value-missions" style={{ color: '#dc2626' }}>{missions.filter(m => m.statut === 'En retard').length}</p>
                     </div>
                     <div className="stat-card-missions">
                         <p className="stat-label-missions tertiary">Terminées</p>
-                        <p className="stat-value-missions">42</p>
+                        <p className="stat-value-missions">{doneMissions.length}</p>
                     </div>
                 </div>
             </header>
 
-            {/* Filters */}
+            {/* ── Filters ── */}
             <div className="filters-container-missions">
                 <div className="search-wrapper-missions">
                     <span className="material-symbols-outlined">search</span>
-                    <input type="text" placeholder="Rechercher par admin, pièce ou ID..." />
+                    <input
+                        type="text"
+                        placeholder="Rechercher par pièce, priorité ou ID..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                    />
                 </div>
-                <button className="filter-date-btn">
-                    <span className="material-symbols-outlined">calendar_today</span>
-                    <span>Filtrer par date</span>
-                    <span className="material-symbols-outlined">expand_more</span>
+                <button className="filter-date-btn" onClick={fetchMissions}>
+                    <span className="material-symbols-outlined">refresh</span>
+                    <span>Actualiser</span>
                 </button>
             </div>
 
-            {/* Same content as before */}
+            {/* ── Active Missions ── */}
             <section className="missions-section">
                 <div className="section-header-missions">
-                    <h2>Missions actives</h2>
+                    <h2>Missions actives <span className="text-orange-500 font-black">({filterMissions(activeMissions).length})</span></h2>
                     <div className="section-divider"></div>
                 </div>
-                <div className="table-card-missions">
-                    <div className="table-responsive">
-                        <table className="missions-data-table">
-                            <thead>
-                                <tr>
-                                    <th>Admin</th>
-                                    <th>Pièce</th>
-                                    <th>Description</th>
-                                    <th>Deadline</th>
-                                    <th>Temps restant</th>
-                                    <th>Statut</th>
-                                    <th className="text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <div className="admin-cell">
-                                            <div className="admin-avatar primary-bg">JD</div>
-                                            <span>Jean Dupont</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="piece-cell-missions">
-                                            <div className="piece-img-box">
-                                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCF7RTGkGa7RfOFrvd1HFQhXQ_G1y3avWoBelTCSPEV_AXZYWeBF8PcwYMmg-_L31gfeZRZroWbRDuKbwuacsIItQ4yPpO16MDKpA1-OP87HjC76jupk9tY6sUhFRjPPBLJIz47sCWYsr4knZrrguvNgu6dIXXTcs8YHfFg8dEJmesP6sq9W8eNz4N9L4ni-TXZn2DUGBkG5JfXW-6-ABBwCMhaN8cHhyhILN8-XDztynrI0REBiVUFSM1NMC0u_VwFMdRDTKUNdBA" alt="Piece" />
-                                            </div>
-                                            <div>
-                                                <div className="piece-name-missions">Turbine B-42</div>
-                                                <div className="piece-id-missions">#ID-88291</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <p className="desc-text-missions">Inspection structurelle annuelle des pales et du moyeu central...</p>
-                                    </td>
-                                    <td>15 Oct, 14:00</td>
-                                    <td>
-                                        <div className="progress-cell-missions">
-                                            <span className="progress-time-text secondary">1h 25min</span>
-                                            <div className="progress-bar-missions">
-                                                <div className="progress-fill-missions secondary-gradient" style={{ width: '85%' }}></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span className="status-tag-missions secondary">En cours</span>
-                                    </td>
-                                    <td className="text-right">
-                                        <button className="analyze-btn" onClick={() => navigate('/inspection')}>Analyser maintenant</button>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <div className="admin-cell">
-                                            <div className="admin-avatar tertiary-bg">SM</div>
-                                            <span>Sarah Martin</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className="piece-cell-missions">
-                                            <div className="piece-img-box">
-                                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpX231VCDCle8XzMt8j_i39RJpYtujxNxKO4UyRAg7fZstloIT41S68JVjgyzqmrRMv2oiXDN1LeoPvcHYIqlAlV-GgxXk3Pn3f7G_UAFsj2gJcWYKjzD6iGROH7TFezuAhh6UiOuOdLZSJO0e03SXJj1jNo9M-bx6JSLOA6AOnyhhmADoMXU9fHYGi-3nPqWZVzTlE-H01IELpwDWIV30BWIn3vNtjL-AOO0BUVVVvUcIE2D721yliNf7hq6AlkmHmzm5zrkpNIc" alt="Piece" />
-                                            </div>
-                                            <div>
-                                                <div className="piece-name-missions">Control PCB v4</div>
-                                                <div className="piece-id-missions">#ID-11024</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <p className="desc-text-missions">Vérification thermique des condensateurs haute tension...</p>
-                                    </td>
-                                    <td>16 Oct, 09:00</td>
-                                    <td>
-                                        <div className="progress-cell-missions">
-                                            <span className="progress-time-text tertiary">18h 40min</span>
-                                            <div className="progress-bar-missions">
-                                                <div className="progress-fill-missions tertiary-gradient" style={{ width: '30%' }}></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span className="status-tag-missions secondary">En cours</span>
-                                    </td>
-                                    <td className="text-right">
-                                        <button className="analyze-btn" onClick={() => navigate('/inspection')}>Analyser maintenant</button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
 
-                    {/* Mobile Cards for Active Missions */}
-                    <div className="missions-cards-mobile">
-                        {[1, 2].map((i) => (
-                            <div key={i} className="mission-mobile-card">
-                                <div className="mission-card-header">
-                                    <div className="mission-admin-info">
-                                        <div className={`admin-avatar ${i === 1 ? 'primary-bg' : 'tertiary-bg'}`}>
-                                            {i === 1 ? 'JD' : 'SM'}
-                                        </div>
-                                        <span className="admin-name-mobile">{i === 1 ? 'Jean Dupont' : 'Sarah Martin'}</span>
-                                    </div>
-                                    <span className="status-tag-missions secondary">En cours</span>
-                                </div>
-                                <div className="mission-card-body">
-                                    <div className="mission-piece-flex">
-                                        <div className="piece-img-box">
-                                            <img src={i === 1 ? "https://lh3.googleusercontent.com/aida-public/AB6AXuCF7RTGkGa7RfOFrvd1HFQhXQ_G1y3avWoBelTCSPEV_AXZYWeBF8PcwYMmg-_L31gfeZRZroWbRDuKbwuacsIItQ4yPpO16MDKpA1-OP87HjC76jupk9tY6sUhFRjPPBLJIz47sCWYsr4knZrrguvNgu6dIXXTcs8YHfFg8dEJmesP6sq9W8eNz4N9L4ni-TXZn2DUGBkG5JfXW-6-ABBwCMhaN8cHhyhILN8-XDztynrI0REBiVUFSM1NMC0u_VwFMdRDTKUNdBA" : "https://lh3.googleusercontent.com/aida-public/AB6AXuDpX231VCDCle8XzMt8j_i39RJpYtujxNxKO4UyRAg7fZstloIT41S68JVjgyzqmrRMv2oiXDN1LeoPvcHYIqlAlV-GgxXk3Pn3f7G_UAFsj2gJcWYKjzD6iGROH7TFezuAhh6UiOuOdLZSJO0e03SXJj1jNo9M-bx6JSLOA6AOnyhhmADoMXU9fHYGi-3nPqWZVzTlE-H01IELpwDWIV30BWIn3vNtjL-AOO0BUVVVvUcIE2D721yliNf7hq6AlkmHmzm5zrkpNIc"} alt="Piece" />
-                                        </div>
-                                        <div className="piece-info-mobile">
-                                            <div className="piece-name-missions">{i === 1 ? 'Turbine B-42' : 'Control PCB v4'}</div>
-                                            <div className="piece-id-missions">{i === 1 ? '#ID-88291' : '#ID-11024'}</div>
-                                        </div>
-                                    </div>
-                                    <p className="mission-desc-mobile">
-                                        {i === 1 ? 'Inspection structurelle annuelle des pales et du moyeu central...' : 'Vérification thermique des condensateurs haute tension...'}
-                                    </p>
-                                    <div className="mission-metrics-mobile">
-                                        <div className="mission-metric">
-                                            <span className="m-label">Deadline</span>
-                                            <span className="m-value">{i === 1 ? '15 Oct, 14:00' : '16 Oct, 09:00'}</span>
-                                        </div>
-                                        <div className="mission-metric">
-                                            <span className="m-label">Temps restant</span>
-                                            <span className="m-value secondary">{i === 1 ? '1h 25min' : '18h 40min'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="mission-card-footer">
-                                    <button className="analyze-btn full-width" onClick={() => navigate('/inspection')}>Analyser maintenant</button>
-                                </div>
-                            </div>
-                        ))}
+                {filterMissions(activeMissions).length === 0 ? (
+                    <div className="table-card-missions">
+                        <div className="text-center py-16 opacity-30">
+                            <span className="material-symbols-outlined text-5xl">task_alt</span>
+                            <p className="font-black mt-4 text-sm uppercase tracking-widest">
+                                {activeMissions.length === 0 ? 'Aucune mission active assignée' : 'Aucun résultat pour cette recherche'}
+                            </p>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="table-card-missions">
+                        {/* Desktop Table */}
+                        <div className="table-responsive hidden md:block">
+                            <table className="missions-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Réf. Mission</th>
+                                        <th>Pièce attendue</th>
+                                        <th>Échéance</th>
+                                        <th>Priorité</th>
+                                        <th>Temps restant</th>
+                                        <th>Statut</th>
+                                        <th className="text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filterMissions(activeMissions).map(m => {
+                                        const time = getTimeRemaining(m);
+                                        const pStyle = prioriteStyle[m.priorite] || prioriteStyle['Normale'];
+                                        return (
+                                            <tr key={m.id}>
+                                                <td>
+                                                    <span className="font-black text-[11px] text-slate-500 uppercase tracking-widest">
+                                                        {m.missionRef || `MSN-${m.id}`}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div className="piece-cell-missions">
+                                                        <div className="piece-img-box" style={{ background: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '1.2rem' }}>precision_manufacturing</span>
+                                                        </div>
+                                                        <div>
+                                                            <div className="piece-name-missions">{m.pieceAttendue || m.titre}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div>
+                                                        <span className="font-semibold text-slate-700 text-sm">{m.dateEcheance || '—'}</span>
+                                                        {m.heureEcheance && <span className="ml-1 text-[10px] font-black text-orange-500">⏰ {m.heureEcheance}</span>}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${pStyle.bg} ${pStyle.text}`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${pStyle.dot}`}></span>
+                                                        {m.priorite}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {time ? (
+                                                        <div className="progress-cell-missions">
+                                                            <span className={`progress-time-text ${time.color}`}>{time.label}</span>
+                                                            <div className="progress-bar-missions">
+                                                                <div className={`progress-fill-missions ${time.barColor}`} style={{ width: `${time.pct}%` }}></div>
+                                                            </div>
+                                                        </div>
+                                                    ) : <span className="text-slate-400 text-xs">—</span>}
+                                                </td>
+                                                <td>
+                                                    {m.statut === 'En retard' ? (
+                                                        <span className="status-tag-missions" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}> En retard</span>
+                                                    ) : (
+                                                        <span className="status-tag-missions secondary">En cours</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-right">
+                                                    <button
+                                                        className="analyze-btn"
+                                                        onClick={() => handleLaunchInspection(m)}
+                                                    >
+                                                        Analyser maintenant
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Cards */}
+                        <div className="missions-cards-mobile md:hidden">
+                            {filterMissions(activeMissions).map(m => {
+                                const time = getTimeRemaining(m.dateEcheance);
+                                const pStyle = prioriteStyle[m.priorite] || prioriteStyle['Normale'];
+                                return (
+                                    <div key={m.id} className="mission-mobile-card">
+                                        <div className="mission-card-header">
+                                            <div className="mission-admin-info">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${pStyle.bg} ${pStyle.text}`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${pStyle.dot}`}></span>
+                                                    {m.priorite}
+                                                </span>
+                                                <span className="text-[10px] font-black text-slate-400 ml-2">{m.missionRef || `MSN-${m.id}`}</span>
+                                            </div>
+                                            <span className="status-tag-missions secondary">En cours</span>
+                                        </div>
+                                        <div className="mission-card-body">
+                                            <div className="piece-name-missions text-base">{m.pieceAttendue || m.titre}</div>
+                                            {m.description && <p className="mission-desc-mobile mt-2">{m.description}</p>}
+                                            <div className="mission-metrics-mobile mt-3">
+                                                <div className="mission-metric">
+                                                    <span className="m-label">Échéance</span>
+                                                    <span className="m-value">{m.dateEcheance || '—'}</span>
+                                                </div>
+                                                {time && (
+                                                    <div className="mission-metric">
+                                                        <span className="m-label">Temps restant</span>
+                                                        <span className={`m-value ${time.color}`}>{time.label}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="mission-card-footer">
+                                            <button className="analyze-btn full-width" onClick={() => handleLaunchInspection(m)}>
+                                                Analyser maintenant
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </section>
 
+            {/* ── Completed Missions ── */}
             <section className="missions-section">
                 <div className="section-header-missions">
-                    <h2>Missions achevées</h2>
+                    <h2>Missions achevées <span className="text-green-600 font-black">({filterMissions(doneMissions).length})</span></h2>
                     <div className="section-divider"></div>
                 </div>
-                <div className="table-card-missions">
-                    <div className="table-responsive">
-                        <table className="missions-data-table">
-                            <thead className="bg-light">
-                                <tr>
-                                    <th>Admin</th>
-                                    <th>Pièce</th>
-                                    <th>Description</th>
-                                    <th>Date Mission</th>
-                                    <th>Complétion</th>
-                                    <th>Statut</th>
-                                    <th className="text-right">Rapport</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y-missions">
-                                <tr>
-                                    <td>Marc L.</td>
-                                    <td>
-                                        <div className="piece-cell-missions mini">
-                                            <div className="piece-img-box mini">
-                                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOt1mn90rWsQflWaB5P0jso2UOGl-A1zKKXOYGj_VI5joRWZfprQ6rNel9ziTcD9_4BDA1qlhAw86v9TQLLrmh1flQwtw_ko1FJeJiT0cxfhs-bI0lz8DEQrpNTA1CeI1dIEYV0c3U6o-dl0iVx8nGVELxYyYQo89fk0I6b0IAl5-hf30n06z5ygJX-cJ6mn38pLFroEXxEgGAlHgggK0CqsUAamlRCTLBs9Cino6dPyJThSSXuwrYWATWVElMeIJlIGXZucqNnfM" alt="Piece" />
-                                            </div>
-                                            <span>Culasse H-700</span>
-                                        </div>
-                                    </td>
-                                    <td className="text-muted-missions">Analyse de porosité post-moulage...</td>
-                                    <td>01 Oct 2023</td>
-                                    <td>01 Oct 2023</td>
-                                    <td>
-                                        <span className="status-tag-missions tertiary">Terminée</span>
-                                    </td>
-                                    <td className="text-right">
-                                        <button className="icon-btn-missions">
-                                            <span className="material-symbols-outlined">picture_as_pdf</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Sarah Martin</td>
-                                    <td>
-                                        <div className="piece-cell-missions mini">
-                                            <div className="piece-img-box mini">
-                                                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmSRL7by3m1miLyoVUWjDETir_PEIe1UlcCK8Q8WEHCRfQIB4g-a6vDtK_jofuVoJ1NkaPktTElw6Kbd2oNrGB56pmyO6XWbcqGcNDYCNWU1AVUahof-J6IQCCPa_eSi7PHupjrdmj8cObBU0n2lKLxA4QoQZvHmsLPAYh1yPYL6ppXl37nTkcQMReeH5egQZBwJ1njKPnKmDo5ao8E93n7593p8S47mCOfOnx1eHatMou-WJZv-msEnzUUSw9Bx5jFJ7aOCH-rIQ" alt="Piece" />
-                                            </div>
-                                            <span>Bielle Renforcée</span>
-                                        </div>
-                                    </td>
-                                    <td className="text-muted-missions">Mesure dimensionnelle micrométrique...</td>
-                                    <td>28 Sep 2023</td>
-                                    <td>29 Sep 2023</td>
-                                    <td>
-                                        <span className="status-tag-missions tertiary">Terminée</span>
-                                    </td>
-                                    <td className="text-right">
-                                        <button className="icon-btn-missions">
-                                            <span className="material-symbols-outlined">picture_as_pdf</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
 
-                    {/* Mobile Cards for Completed Missions */}
-                    <div className="missions-cards-mobile">
-                        {[1, 2].map((i) => (
-                            <div key={i} className="mission-mobile-card completed">
-                                <div className="mission-card-header">
-                                    <span className="admin-name-mobile">{i === 1 ? 'Marc L.' : 'Sarah Martin'}</span>
-                                    <span className="status-tag-missions tertiary">Terminée</span>
-                                </div>
-                                <div className="mission-card-body">
-                                    <div className="mission-piece-flex">
-                                        <div className="piece-img-box mini">
-                                            <img src={i === 1 ? "https://lh3.googleusercontent.com/aida-public/AB6AXuDOt1mn90rWsQflWaB5P0jso2UOGl-A1zKKXOYGj_VI5joRWZfprQ6rNel9ziTcD9_4BDA1qlhAw86v9TQLLrmh1flQwtw_ko1FJeJiT0cxfhs-bI0lz8DEQrpNTA1CeI1dIEYV0c3U6o-dl0iVx8nGVELxYyYQo89fk0I6b0IAl5-hf30n06z5ygJX-cJ6mn38pLFroEXxEgGAlHgggK0CqsUAamlRCTLBs9Cino6dPyJThSSXuwrYWATWVElMeIJlIGXZucqNnfM" : "https://lh3.googleusercontent.com/aida-public/AB6AXuAmSRL7by3m1miLyoVUWjDETir_PEIe1UlcCK8Q8WEHCRfQIB4g-a6vDtK_jofuVoJ1NkaPktTElw6Kbd2oNrGB56pmyO6XWbcqGcNDYCNWU1AVUahof-J6IQCCPa_eSi7PHupjrdmj8cObBU0n2lKLxA4QoQZvHmsLPAYh1yPYL6ppXl37nTkcQMReeH5egQZBwJ1njKPnKmDo5ao8E93n7593p8S47mCOfOnx1eHatMou-WJZv-msEnzUUSw9Bx5jFJ7aOCH-rIQ"} alt="Piece" />
-                                        </div>
-                                        <div className="piece-name-missions">{i === 1 ? 'Culasse H-700' : 'Bielle Renforcée'}</div>
-                                    </div>
-                                    <div className="mission-metrics-mobile">
-                                        <div className="mission-metric">
-                                            <span className="m-label">Date Mission</span>
-                                            <span className="m-value">{i === 1 ? '01 Oct 2023' : '28 Sep 2023'}</span>
-                                        </div>
-                                        <div className="mission-metric">
-                                            <span className="m-label">Complétion</span>
-                                            <span className="m-value tertiary">{i === 1 ? '01 Oct 2023' : '29 Sep 2023'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="mission-card-footer">
-                                    <button className="btn-download-mobile">
-                                        <span className="material-symbols-outlined">picture_as_pdf</span>
-                                        Rapport PDF
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                {filterMissions(doneMissions).length === 0 ? (
+                    <div className="table-card-missions">
+                        <div className="text-center py-12 opacity-20">
+                            <span className="material-symbols-outlined text-4xl">history</span>
+                            <p className="font-black mt-2 text-xs uppercase tracking-widest">Aucune mission terminée</p>
+                        </div>
                     </div>
-                    <div className="table-footer-missions">
-                        <span>Affichage de 2 sur 42 missions terminées</span>
-                        <button className="view-more-btn">Voir plus</button>
+                ) : (
+                    <div className="table-card-missions">
+                        <div className="table-responsive hidden md:block">
+                            <table className="missions-data-table">
+                                <thead className="bg-light">
+                                    <tr>
+                                        <th>Réf. Mission</th>
+                                        <th>Pièce</th>
+                                        <th>Description</th>
+                                        <th>Date assignation</th>
+                                        <th>Priorité</th>
+                                        <th>Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y-missions">
+                                    {filterMissions(doneMissions).map(m => {
+                                        const pStyle = prioriteStyle[m.priorite] || prioriteStyle['Normale'];
+                                        return (
+                                            <tr key={m.id}>
+                                                <td>
+                                                    <span className="font-black text-[11px] text-slate-500 uppercase tracking-widest">
+                                                        {m.missionRef || `MSN-${m.id}`}
+                                                    </span>
+                                                </td>
+                                                <td className="font-bold text-slate-800 text-sm">{m.pieceAttendue || m.titre}</td>
+                                                <td className="text-muted-missions">{m.description || '—'}</td>
+                                                <td className="text-slate-500 text-sm">{m.createdAt}</td>
+                                                <td>
+                                                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${pStyle.bg} ${pStyle.text}`}>
+                                                        {m.priorite}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className="status-tag-missions tertiary">Terminée ✓</span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Cards */}
+                        <div className="missions-cards-mobile md:hidden">
+                            {filterMissions(doneMissions).map(m => (
+                                <div key={m.id} className="mission-mobile-card completed">
+                                    <div className="mission-card-header">
+                                        <span className="admin-name-mobile">{m.pieceAttendue || m.titre}</span>
+                                        <span className="status-tag-missions tertiary">Terminée ✓</span>
+                                    </div>
+                                    <div className="mission-card-body">
+                                        <div className="mission-metrics-mobile">
+                                            <div className="mission-metric">
+                                                <span className="m-label">Réf</span>
+                                                <span className="m-value">{m.missionRef || `MSN-${m.id}`}</span>
+                                            </div>
+                                            <div className="mission-metric">
+                                                <span className="m-label">Date</span>
+                                                <span className="m-value tertiary">{m.createdAt}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="table-footer-missions">
+                            <span>Affichage de {filterMissions(doneMissions).length} mission(s) terminée(s)</span>
+                        </div>
                     </div>
-                </div>
+                )}
             </section>
 
             <footer className="dashboard-footer">
-                <span>© 2024 SMART INSPECT. Tous droits réservés.</span>
+                <span>© 2026 SMART INSPECT. Tous droits réservés.</span>
                 <div className="footer-links">
                     <a href="#">Conditions d'utilisation</a>
                     <a href="#">Politique de confidentialité</a>

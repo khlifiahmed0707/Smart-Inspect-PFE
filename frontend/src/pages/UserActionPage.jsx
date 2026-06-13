@@ -5,6 +5,16 @@ import './UserActionPage.css';
 
 const UserActionPage = () => {
     const navigate = useNavigate();
+
+    // ── SECURITY CHECK ──────────────────────────────────────
+    React.useEffect(() => {
+        const role = localStorage.getItem('userRole');
+        if (role === 'SUPER_ADMIN') {
+            navigate('/admin');
+        }
+    }, [navigate]);
+    // ────────────────────────────────────────────────────────
+
     const [activeTab, setActiveTab] = useState('add'); // add, update, delete
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
@@ -22,14 +32,16 @@ const UserActionPage = () => {
     const [searchCin, setSearchCin] = useState('');
     const [foundUser, setFoundUser] = useState(null);
     const [adminEmails, setAdminEmails] = useState([]);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
 
     React.useEffect(() => {
         const fetchAdmin = async () => {
             try {
-                const response = await fetch('http://127.0.0.1:8081/api/admin/me');
+                const response = await fetch('/api/admin/me');
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.email) setAdminEmails([data.email.toLowerCase(), 'ahmedkhlifi0707@gmail.com']);
+                    if (data.email) setAdminEmails([data.email.toLowerCase()]);
                 }
             } catch (e) {}
         };
@@ -60,7 +72,7 @@ const UserActionPage = () => {
         if (!searchCin) return;
         setLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:8081/api/personnes/by-cin/${searchCin}`);
+            const response = await fetch(`/api/personnes/by-cin/${searchCin}`);
             if (response.ok) {
                 const user = await response.json();
                 
@@ -104,22 +116,35 @@ const UserActionPage = () => {
             return;
         }
 
+        if (activeTab === 'delete') {
+            setShowDeleteModal(true);
+            setDeleteConfirmInput('');
+            return;
+        }
+
+        performAction();
+    };
+
+    const performAction = async () => {
         setLoading(true);
         try {
-            let url = 'http://127.0.0.1:8081/api/personnes';
+            let url = '/api/personnes';
             let method = 'POST';
 
             if (activeTab === 'update') {
-                url = `http://127.0.0.1:8081/api/personnes/update/${foundUser.email}`;
+                url = `/api/personnes/update/${foundUser.email}`;
                 method = 'PUT';
             } else if (activeTab === 'delete') {
-                url = `http://127.0.0.1:8081/api/personnes/${foundUser.email}`;
+                url = `/api/personnes/${foundUser.email}`;
                 method = 'DELETE';
             }
 
             const response = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Role': localStorage.getItem('userRole')
+                },
                 body: activeTab === 'delete' ? null : JSON.stringify(formData)
             });
 
@@ -129,6 +154,7 @@ const UserActionPage = () => {
                                'la suppression fait avec success !';
                 setMessage({ type: 'success', text: successMsg });
                 if (activeTab !== 'update') resetForm(true);
+                if (activeTab === 'delete') setShowDeleteModal(false);
             } else {
                 const errorText = await response.text();
                 setMessage({ type: 'error', text: errorText || 'Une erreur est survenue.' });
@@ -137,6 +163,12 @@ const UserActionPage = () => {
             setMessage({ type: 'error', text: 'Erreur de connexion au serveur.' });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleConfirmDestroy = () => {
+        if (deleteConfirmInput === foundUser?.email) {
+            performAction();
         }
     };
 
@@ -352,6 +384,62 @@ const UserActionPage = () => {
                 </div>
                 </div>
             </div>
+
+            {/* ── SECURITY DELETE MODAL ── */}
+            {showDeleteModal && (
+                <div className="modal-overlay-premium">
+                    <div className="modal-backdrop-premium" onClick={() => !loading && setShowDeleteModal(false)}></div>
+                    <div className="modal-card-premium">
+                        <div className="modal-header-premium">
+                            <div className="modal-header-icon">
+                                <span className="material-symbols-outlined text-4xl font-black">gpp_maybe</span>
+                            </div>
+                            <div className="modal-header-text">
+                                <h3>Révocation Critique</h3>
+                                <p>Protocole de sécurité SMART INSPECT</p>
+                            </div>
+                        </div>
+
+                        <div className="modal-body-premium">
+                            <p className="modal-message">
+                                Êtes-vous certain de vouloir supprimer définitivement l'accès de <strong style={{ color: '#0f172a' }}>{foundUser?.prenom} {foundUser?.nom}</strong> ? Cette action est irréversible.
+                            </p>
+
+                            <div className="modal-input-group">
+                                <label>Vérification de sécurité requise</label>
+                                <p className="confirm-hint">
+                                    Veuillez saisir l'email <span style={{ color: '#0f172a', fontWeight: 900 }}>{foundUser?.email}</span> pour confirmer.
+                                </p>
+                                <input
+                                    type="text"
+                                    placeholder="Saisissez l'email de l'utilisateur..."
+                                    value={deleteConfirmInput}
+                                    onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                                    className="modal-input-premium"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="modal-footer-premium">
+                                <button
+                                    onClick={() => setShowDeleteModal(false)}
+                                    disabled={loading}
+                                    className="btn-modal-cancel"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={handleConfirmDestroy}
+                                    disabled={loading || deleteConfirmInput !== foundUser?.email}
+                                    className="btn-modal-confirm"
+                                >
+                                    {loading ? 'Révocation...' : 'RÉVOQUER L\'ACCÈS'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 };

@@ -7,20 +7,71 @@ export default function AdminDashboardPage() {
     const navigate = useNavigate();
     const adminName = localStorage.getItem('userName') || 'Administrateur';
 
-    const [userCount, setUserCount] = useState("...");
+    const [adminStats, setAdminStats] = useState({
+        totalUsers: 0,
+        userTrend: "+2%",
+        totalInspections: 0,
+        inspectionTrend: "+100%",
+        missionsEnCours: "—",
+        avgConfidence: "95,3%",
+        iaStatus: "OPTIMAL"
+    });
 
     useEffect(() => {
-        fetch('http://127.0.0.1:8081/api/personnes-count')
+        const adminEmail = localStorage.getItem('userEmail') || '';
+
+        // ── Fetch mission stats (real endpoint) ──
+        fetch(`/api/missions/stats`)
             .then(res => res.json())
-            .then(count => setUserCount(count.toString()))
-            .catch(err => setUserCount(0));
+            .then(data => {
+                setAdminStats(prev => ({
+                    ...prev,
+                    missionsEnCours: data.enCours !== undefined ? data.enCours : prev.missionsEnCours
+                }));
+            })
+            .catch(err => console.error("Missions stats error:", err));
+
+        // ── Fetch total users ──
+        fetch('/api/personnes-count')
+            .then(res => res.text())
+            .then(count => {
+                setAdminStats(prev => ({ ...prev, totalUsers: parseInt(count) || prev.totalUsers }));
+            })
+            .catch(() => {});
+
+        // ── Fetch total inspections (global) ──
+        fetch('/api/inspections/count')
+            .then(res => res.json())
+            .then(data => {
+                if (data.count !== undefined) {
+                    setAdminStats(prev => ({ ...prev, totalInspections: data.count }));
+                }
+            })
+            .catch(() => {});
+
+
+        // ── Refresh missions every 30 seconds (LIVE) ──
+        const interval = setInterval(() => {
+            fetch('/api/missions/stats')
+                .then(res => res.json())
+                .then(data => {
+                    setAdminStats(prev => ({
+                        ...prev,
+                        missionsEnCours: data.enCours !== undefined ? data.enCours : prev.missionsEnCours
+                    }));
+                })
+                .catch(() => {});
+        }, 30000);
+
+        return () => clearInterval(interval);
     }, []);
 
+
     const stats = [
-        { label: "Total Utilisateurs", val: userCount, trend: "+12%", icon: "group", color: "bg-blue-50 text-blue-600" },
-        { label: "Total Inspections", val: "45,800", trend: "+8%", icon: "fact_check", color: "bg-purple-50 text-purple-600" },
-        { label: "Missions en cours", val: "24", trend: "LIVE", icon: "assignment", color: "bg-orange-50 text-orange-600" },
-        { label: "Performance IA", val: "98.4%", trend: "OPTIMAL", icon: "psychology", color: "bg-emerald-50 text-emerald-600" }
+        { label: "Total Utilisateurs", val: adminStats.totalUsers, trend: adminStats.userTrend, icon: "group", color: "bg-blue-50 text-blue-600" },
+        { label: "Total Inspections", val: adminStats.totalInspections.toLocaleString(), trend: adminStats.inspectionTrend, icon: "fact_check", color: "bg-purple-50 text-purple-600" },
+        { label: "Missions en cours", val: adminStats.missionsEnCours, trend: "LIVE", icon: "assignment", color: "bg-orange-50 text-orange-600" },
+        { label: "Performance IA", val: adminStats.avgConfidence, trend: adminStats.iaStatus, icon: "psychology", color: "bg-emerald-50 text-emerald-600" }
     ];
 
     const managementCards = [
@@ -31,7 +82,7 @@ export default function AdminDashboardPage() {
             theme: "bg-slate-50",
             iconColor: "text-slate-900",
             primaryBtn: "Voir la Situation",
-            secondaryBtn: "Nouveau Compte",
+            secondaryBtn: localStorage.getItem('userRole') !== 'SUPER_ADMIN' ? "Nouveau Compte" : null,
             onClick: () => navigate('/admin/users'),
             onSecondaryClick: () => navigate('/admin/user-action')
         },
@@ -54,12 +105,13 @@ export default function AdminDashboardPage() {
             onClick: () => navigate('/admin/analytics')
         },
         {
-            title: "Monitoring IA",
-            desc: "Surveillance de l'entraînement et du déploiement des modèles.",
-            icon: "model_training",
+            title: "Mon Profil Admin",
+            desc: "Gérer mon profil administrateur.",
+            icon: "settings",
             theme: "bg-slate-50",
             iconColor: "text-slate-900",
-            primaryBtn: "Performance Modèle"
+            primaryBtn: "Voir mon profil",
+            onClick: () => navigate('/admin/profile')
         }
     ];
 
@@ -106,7 +158,7 @@ export default function AdminDashboardPage() {
                         </h3>
                         <div className="h-px flex-1 bg-slate-100 mx-8"></div>
                     </div>
-                    
+
                     <div className="management-grid-premium">
                         {managementCards.map((card, id) => (
                             <div key={id} className="mgt-card-premium bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group">
